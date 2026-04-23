@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gunpla Inventory Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library for Excel Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400&display=swap');
 
@@ -66,6 +68,19 @@
             box-shadow: 0 0 15px rgba(217, 4, 41, 0.3);
         }
 
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #6c757d;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--gundam-blue);
+            color: var(--gundam-blue);
+            background: rgba(0, 86, 179, 0.05);
+        }
+
         input {
             background: var(--gundam-accent) !important;
             border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -107,7 +122,6 @@
             width: 40px;
         }
 
-        /* Gundam Aesthetic Accents */
         .corner-accent {
             position: absolute;
             width: 20px;
@@ -120,7 +134,7 @@
 </head>
 <body class="min-h-screen p-4 md:p-8">
 
-    <div id="app" class="max-w-4xl mx-auto relative">
+    <div id="app" class="max-w-4xl mx-auto relative pb-20">
         <!-- Header -->
         <header class="mb-12 text-center relative py-6">
             <div class="corner-accent top-left"></div>
@@ -129,13 +143,13 @@
             <p class="text-gray-400 text-sm tracking-widest">MOBILE SUIT INVENTORY MANAGEMENT SYSTEM</p>
         </header>
 
-        <!-- Navigation Buttons -->
+        <!-- Main Navigation Buttons -->
         <div id="main-nav" class="flex flex-col md:flex-row gap-4 justify-center mb-12">
-            <button onclick="showPage('list')" class="nav-btn btn-primary px-8 py-4 rounded-sm flex items-center justify-center gap-2">
+            <button onclick="showPage('list')" class="nav-btn btn-primary px-12 py-4 rounded-sm flex items-center justify-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
                 View Backlog
             </button>
-            <button onclick="showPage('add')" class="nav-btn btn-secondary px-8 py-4 rounded-sm flex items-center justify-center gap-2">
+            <button onclick="showPage('add')" class="nav-btn btn-secondary px-12 py-4 rounded-sm flex items-center justify-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                 Register Kit
             </button>
@@ -143,10 +157,13 @@
 
         <!-- View: List Page -->
         <div id="page-list" class="page hidden">
-            <div class="glass-panel p-6 rounded-lg overflow-x-auto">
+            <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl text-blue-800">Inventory Feed</h2>
-                    <span id="kit-count" class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200">0 UNITS</span>
+                    <div class="flex items-center gap-4">
+                        <button onclick="exportToExcel()" class="text-xs text-blue-600 hover:underline">Download Template</button>
+                        <span id="kit-count" class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200">0 UNITS</span>
+                    </div>
                 </div>
                 <table class="w-full text-left">
                     <thead>
@@ -155,7 +172,8 @@
                             <th class="pb-4 font-normal">BRAND</th>
                             <th class="pb-4 font-normal">MODEL NAME</th>
                             <th class="pb-4 font-normal">SIZE/GRADE</th>
-                            <th class="pb-4 font-normal">PRICE</th>
+                            <th class="pb-4 font-normal">UNITS</th>
+                            <th class="pb-4 font-normal">PRICE (EACH)</th>
                             <th class="pb-4 font-normal">ACTIONS</th>
                         </tr>
                     </thead>
@@ -165,6 +183,22 @@
                 </table>
                 <div id="empty-state" class="text-center py-12 text-gray-400 hidden">
                     NO MOBILE SUITS DETECTED IN BACKLOG
+                </div>
+            </div>
+
+            <!-- Import Section at Bottom of List -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 bg-gray-50/50 rounded-b-lg">
+                <div class="text-xs text-gray-400 uppercase tracking-widest">Data Management Tools</div>
+                <div class="flex gap-2">
+                    <!-- Hidden File Input for Excel -->
+                    <input type="file" id="excel-upload" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcel(this)">
+                    <button onclick="document.getElementById('excel-upload').click()" class="text-xs btn-outline px-4 py-2 rounded flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Import from Excel
+                    </button>
+                    <button onclick="confirmClear()" class="text-xs px-4 py-2 border border-red-200 text-red-400 hover:bg-red-50 rounded transition-colors">
+                        Clear All Data
+                    </button>
                 </div>
             </div>
         </div>
@@ -192,10 +226,15 @@
                                    class="w-full p-3 rounded">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-2">PRICE (RM)</label>
-                            <input type="number" step="0.01" id="price" required placeholder="0.00" 
+                            <label class="block text-xs text-gray-500 mb-2">UNITS (QTY)</label>
+                            <input type="number" id="units" required min="1" value="1" 
                                    class="w-full p-3 rounded">
                         </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-2">PRICE PER UNIT (RM)</label>
+                        <input type="number" step="0.01" id="price" required placeholder="0.00" 
+                               class="w-full p-3 rounded">
                     </div>
                     <div class="pt-4 flex gap-3">
                         <button type="submit" class="flex-1 btn-secondary py-3 rounded font-bold">CONFIRM REGISTRATION</button>
@@ -206,7 +245,7 @@
         </div>
 
         <!-- Notification Message Box (Custom Alert) -->
-        <div id="msg-box" class="fixed bottom-8 right-8 glass-panel p-4 border-l-4 border-blue-600 shadow-xl transform translate-y-24 transition-transform duration-300 pointer-events-none">
+        <div id="msg-box" class="fixed bottom-8 right-8 glass-panel p-4 border-l-4 border-blue-600 shadow-xl transform translate-y-24 transition-transform duration-300 pointer-events-none z-50">
             <p id="msg-text" class="text-sm font-bold text-blue-900"></p>
         </div>
     </div>
@@ -214,8 +253,8 @@
     <script>
         // Data Management
         let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || [
-            { id: 1, brand: 'Bandai', modelName: 'RG Hi-Nu Gundam', size: '1/144', price: 185.00 },
-            { id: 2, brand: 'Bandai', modelName: 'MGSD Freedom Gundam', size: 'Non-Scale', price: 155.00 }
+            { id: 1, brand: 'Bandai', modelName: 'RG Hi-Nu Gundam', size: '1/144', units: 1, price: 185.00 },
+            { id: 2, brand: 'Bandai', modelName: 'MGSD Freedom Gundam', size: 'Non-Scale', units: 1, price: 155.00 }
         ];
 
         // UI Logic
@@ -234,7 +273,9 @@
             const countDisplay = document.getElementById('kit-count');
             
             tbody.innerHTML = '';
-            countDisplay.innerText = `${backlog.length} UNITS`;
+            
+            const totalUnits = backlog.reduce((sum, kit) => sum + parseInt(kit.units || 1), 0);
+            countDisplay.innerText = `${totalUnits} TOTAL UNITS`;
 
             if (backlog.length === 0) {
                 emptyState.classList.remove('hidden');
@@ -251,6 +292,7 @@
                     <td class="py-4 text-sm text-gray-500">${kit.brand}</td>
                     <td class="py-4 font-bold text-gray-900">${kit.modelName}</td>
                     <td class="py-4"><span class="status-badge">${kit.size}</span></td>
+                    <td class="py-4 font-bold text-blue-900">${kit.units || 1}</td>
                     <td class="py-4 text-blue-700 font-mono font-bold">RM ${parseFloat(kit.price).toFixed(2)}</td>
                     <td class="py-4">
                         <button onclick="deleteKit(${index})" class="text-gray-400 hover:text-red-500 transition-colors">
@@ -263,10 +305,24 @@
         }
 
         function deleteKit(index) {
-            backlog.splice(index, 1);
-            saveData();
-            renderTable();
-            showMessage("Unit removed from inventory.");
+            if (window.confirm("Delete this mobile suit entry?")) {
+                backlog.splice(index, 1);
+                saveData();
+                renderTable();
+                showMessage("Unit removed from inventory.");
+            }
+        }
+
+        function confirmClear() {
+            // Confirmation popup added here
+            const isConfirmed = window.confirm("CRITICAL WARNING: This action will permanently erase your entire backlog database. Do you wish to proceed?");
+            
+            if (isConfirmed) {
+                backlog = [];
+                saveData();
+                renderTable();
+                showMessage("Database purged. All units cleared.");
+            }
         }
 
         function showMessage(text) {
@@ -282,6 +338,60 @@
             localStorage.setItem('gunpla_backlog', JSON.stringify(backlog));
         }
 
+        // Excel Handling
+        function handleExcel(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+                    if (jsonData.length === 0) {
+                        showMessage("Error: File is empty.");
+                        return;
+                    }
+
+                    const importedKits = jsonData.map(row => ({
+                        id: Date.now() + Math.random(),
+                        brand: row['Brand'] || row['brand'] || 'Unknown',
+                        modelName: row['Model Name'] || row['model_name'] || row['Name'] || 'Unnamed Kit',
+                        size: row['Size'] || row['size'] || row['Grade'] || '-',
+                        units: parseInt(row['Units'] || row['units'] || row['Qty'] || row['qty'] || 1),
+                        price: parseFloat(row['Price'] || row['price'] || 0)
+                    }));
+
+                    backlog = [...backlog, ...importedKits];
+                    saveData();
+                    renderTable();
+                    showMessage(`Successfully imported ${importedKits.length} entries.`);
+                    input.value = '';
+                } catch (err) {
+                    console.error(err);
+                    showMessage("Error reading Excel file. Check format.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportToExcel() {
+            const worksheet = XLSX.utils.json_to_sheet(backlog.map(k => ({
+                'Brand': k.brand,
+                'Model Name': k.modelName,
+                'Size': k.size,
+                'Units': k.units || 1,
+                'Price': k.price
+            })));
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Backlog");
+            XLSX.writeFile(workbook, "Gunpla_Backlog_Template.xlsx");
+        }
+
         // Form Handling
         document.getElementById('add-kit-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -291,18 +401,20 @@
                 brand: document.getElementById('brand').value,
                 modelName: document.getElementById('modelName').value,
                 size: document.getElementById('size').value,
-                price: document.getElementById('price').value
+                units: parseInt(document.getElementById('units').value) || 1,
+                price: parseFloat(document.getElementById('price').value)
             };
 
             backlog.push(newKit);
             saveData();
             
             e.target.reset();
+            document.getElementById('units').value = 1;
+            
             showMessage("New Mobile Suit registered successfully.");
             setTimeout(() => showPage('list'), 800);
         });
 
-        // Initialize
         window.onload = () => {
             showPage('list');
         };
