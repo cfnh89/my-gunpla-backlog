@@ -157,8 +157,20 @@
             border-radius: 4px;
             font-weight: bold;
             transition: opacity 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .google-btn:hover { opacity: 0.9; }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
@@ -166,11 +178,11 @@
     <div id="sync-status" class="flex flex-col items-end gap-2">
         <div class="flex items-center gap-2 bg-white/90 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
             <div id="sync-indicator" class="w-2 h-2 rounded-full bg-yellow-400"></div>
-            <span id="sync-text" class="text-gray-500 uppercase tracking-tighter font-bold">Connecting...</span>
+            <span id="sync-text" class="text-gray-500 uppercase tracking-tighter font-bold">Initializing...</span>
             <span id="user-display-name" class="hidden text-blue-600 font-bold ml-1"></span>
         </div>
         <button id="auth-action-btn" class="google-btn text-[10px] hidden uppercase tracking-widest">
-            Sign in with Google
+            Connect Google
         </button>
     </div>
 
@@ -179,31 +191,27 @@
             <div class="corner-accent top-left"></div>
             <div class="corner-accent bottom-right"></div>
             <h1 id="main-title" class="text-3xl md:text-5xl font-bold mb-2 text-blue-900">Backlog Command</h1>
-            <p id="sub-title" class="text-gray-400 text-sm tracking-widest uppercase">Multi-Device Cloud Sync</p>
+            <p id="sub-title" class="text-gray-400 text-sm tracking-widest uppercase">Mobile & Web Synchronized</p>
         </header>
 
         <div id="main-nav" class="flex flex-col md:flex-row gap-3 justify-center mb-12">
             <button id="nav-backlog" onclick="showPage('list')" class="nav-btn btn-primary px-6 py-3 rounded-sm flex items-center justify-center gap-2 flex-1 active-nav-blue">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
                 Backlog
             </button>
             <button id="nav-qmsv" onclick="showPage('qmsv')" class="nav-btn btn-qmsv px-6 py-3 rounded-sm flex items-center justify-center gap-2 flex-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 QMSV Mini
             </button>
         </div>
 
         <!-- Backlog List Page -->
-        <div id="page-list" class="page hidden">
+        <div id="page-list" class="page">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
                 <div class="flex items-center gap-3">
                     <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
                     <button onclick="sortData('backlog', 'modelName')" class="sort-btn">NAME</button>
                     <button onclick="sortData('backlog', 'brand')" class="sort-btn">BRAND</button>
-                    <button onclick="sortData('backlog', 'price')" class="sort-btn">PRICE</button>
                 </div>
                 <button onclick="showAddForm('backlog')" class="btn-secondary px-4 py-2 rounded text-xs font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                     NEW ENTRY
                 </button>
             </div>
@@ -219,13 +227,15 @@
                             <th class="pb-4 font-normal">#</th>
                             <th class="pb-4 font-normal">BRAND</th>
                             <th class="pb-4 font-normal">MODEL NAME</th>
-                            <th class="pb-4 font-normal">SIZE/GRADE</th>
+                            <th class="pb-4 font-normal">GRADE</th>
                             <th class="pb-4 font-normal">UNITS</th>
-                            <th class="pb-4 font-normal">PRICE (EACH)</th>
+                            <th class="pb-4 font-normal">PRICE</th>
                             <th class="pb-4 font-normal">ACTIONS</th>
                         </tr>
                     </thead>
-                    <tbody id="backlog-table-body"></tbody>
+                    <tbody id="backlog-table-body">
+                        <tr><td colspan="7" class="text-center py-8 text-gray-400">Loading Backlog...</td></tr>
+                    </tbody>
                     <tfoot id="backlog-table-footer" class="hidden">
                         <tr class="border-t-2 border-blue-900 bg-blue-50/50">
                             <td colspan="4" class="py-6 px-4 text-right font-bold text-blue-900 uppercase text-xs tracking-widest">Total Value:</td>
@@ -237,171 +247,105 @@
             </div>
         </div>
 
-        <!-- QMSV Mini Collection Page -->
+        <!-- QMSV Page -->
         <div id="page-qmsv" class="page hidden">
+            <!-- Content matches page-list structure -->
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
-                <div class="flex items-center gap-3">
-                    <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
-                    <button onclick="sortData('qmsv', 'modelName')" class="sort-btn">NAME</button>
-                    <button onclick="sortData('qmsv', 'series')" class="sort-btn">SERIES</button>
-                </div>
-                <button onclick="showAddForm('qmsv')" class="btn-qmsv px-4 py-2 rounded text-xs font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <button onclick="showAddForm('qmsv')" class="btn-qmsv px-4 py-2 rounded text-xs font-bold ml-auto">
                     ADD FIGURE
                 </button>
             </div>
-
-            <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6 border-purple-200">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl text-purple-800">QMSV Mini Archive</h2>
-                    <span id="qmsv-count-header" class="text-xs bg-purple-100 text-purple-800 px-3 py-1 rounded-full border border-purple-200">0 Figures</span>
-                </div>
+            <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6">
                 <table class="w-full text-left">
-                    <thead>
-                        <tr class="text-gray-500 text-xs border-b border-gray-200">
-                            <th class="pb-4 font-normal">#</th>
-                            <th class="pb-4 font-normal">SERIES</th>
-                            <th class="pb-4 font-normal">NAME</th>
-                            <th class="pb-4 font-normal">TYPE</th>
-                            <th class="pb-4 font-normal">QTY</th>
-                            <th class="pb-4 font-normal">ACTIONS</th>
-                        </tr>
-                    </thead>
+                    <thead><tr class="text-gray-500 text-xs border-b border-gray-200"><th class="pb-4 font-normal">#</th><th class="pb-4 font-normal">SERIES</th><th class="pb-4 font-normal">NAME</th><th class="pb-4 font-normal">TYPE</th><th class="pb-4 font-normal">QTY</th><th class="pb-4 font-normal">ACTIONS</th></tr></thead>
                     <tbody id="qmsv-table-body"></tbody>
                 </table>
-                <div id="qmsv-empty-state" class="text-center py-12 text-gray-400 hidden">
-                    NO QMSV FIGURES REGISTERED
-                </div>
             </div>
         </div>
 
-        <!-- Add Form Page -->
+        <!-- Add Form -->
         <div id="page-add" class="page hidden">
-            <div class="glass-panel p-8 rounded-lg max-w-lg mx-auto relative">
-                <h2 id="form-title" class="text-xl mb-8 border-l-4 pl-4 uppercase tracking-tighter">Registry</h2>
-                
+            <div class="glass-panel p-8 rounded-lg max-w-lg mx-auto">
+                <h2 id="form-title" class="text-xl mb-8 border-l-4 pl-4 uppercase">Registry</h2>
                 <form id="add-kit-form" class="space-y-6">
-                    <div id="brand-field">
-                        <label id="brand-label" class="block text-xs text-gray-500 mb-2 uppercase">BRAND</label>
-                        <input type="text" id="brand" required class="w-full p-3 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-2 uppercase">MODEL NAME</label>
-                        <input type="text" id="modelName" required class="w-full p-3 rounded">
-                    </div>
+                    <div><label class="block text-xs text-gray-500 mb-2">BRAND/SERIES</label><input type="text" id="brand" required class="w-full p-3 rounded"></div>
+                    <div><label class="block text-xs text-gray-500 mb-2">MODEL NAME</label><input type="text" id="modelName" required class="w-full p-3 rounded"></div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label id="size-label" class="block text-xs text-gray-500 mb-2 uppercase">GRADE / SIZE</label>
-                            <input type="text" id="size" required class="w-full p-3 rounded">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-2 uppercase">QTY</label>
-                            <input type="number" id="units" required min="1" value="1" class="w-full p-3 rounded">
-                        </div>
+                        <div><label class="block text-xs text-gray-500 mb-2">GRADE/SIZE</label><input type="text" id="size" required class="w-full p-3 rounded"></div>
+                        <div><label class="block text-xs text-gray-500 mb-2">QTY</label><input type="number" id="units" required min="1" value="1" class="w-full p-3 rounded"></div>
                     </div>
                     <div id="price-field">
-                        <label class="block text-xs text-gray-500 mb-2 uppercase">PRICE PER UNIT (RM)</label>
-                        <input type="number" step="0.01" id="price" required placeholder="0.00" class="w-full p-3 rounded">
+                        <label class="block text-xs text-gray-500 mb-2 uppercase">PRICE (RM)</label>
+                        <input type="number" step="0.01" id="price" class="w-full p-3 rounded">
                     </div>
                     <div class="pt-4 flex gap-3">
-                        <button type="submit" id="submit-btn" class="flex-1 py-3 rounded font-bold text-white">CONFIRM REGISTRY</button>
-                        <button type="button" onclick="cancelAdd()" class="px-6 py-3 border border-gray-300 text-gray-500 hover:text-gray-800 transition-colors">CANCEL</button>
+                        <button type="submit" id="submit-btn" class="flex-1 py-3 rounded font-bold text-white bg-blue-600">CONFIRM</button>
+                        <button type="button" onclick="cancelAdd()" class="px-6 py-3 border border-gray-300 text-gray-500">CANCEL</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Edit Modal -->
+        <!-- Edit Modal (Hidden by default) -->
         <div id="edit-modal" class="fixed inset-0 hidden flex items-center justify-center z-[100] p-4">
-            <div class="glass-panel p-8 rounded-lg max-w-lg w-full relative">
-                <h2 class="text-xl text-blue-600 mb-8 border-l-4 border-blue-600 pl-4 uppercase tracking-widest">Update Data</h2>
+            <div class="glass-panel p-8 rounded-lg max-w-lg w-full">
                 <form id="edit-kit-form" class="space-y-6">
-                    <input type="hidden" id="edit-id">
-                    <input type="hidden" id="edit-type">
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-2">BRAND / SERIES</label>
-                        <input type="text" id="edit-brand" required class="w-full p-3 rounded">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-2">MODEL NAME</label>
-                        <input type="text" id="edit-modelName" required class="w-full p-3 rounded">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-2">SIZE / TYPE</label>
-                            <input type="text" id="edit-size" required class="w-full p-3 rounded">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-2">UNITS</label>
-                            <input type="number" id="edit-units" required min="1" class="w-full p-3 rounded">
-                        </div>
-                    </div>
-                    <div id="edit-price-field">
-                        <label class="block text-xs text-gray-500 mb-2">PRICE (RM)</label>
-                        <input type="number" step="0.01" id="edit-price" required class="w-full p-3 rounded">
-                    </div>
-                    <div class="pt-4 flex gap-3">
-                        <button type="submit" class="flex-1 btn-primary py-3 rounded font-bold">SAVE CHANGES</button>
-                        <button type="button" onclick="closeEditModal()" class="px-6 py-3 border border-gray-300 text-gray-500 hover:text-gray-800 transition-colors">BACK</button>
-                    </div>
+                    <input type="hidden" id="edit-id"><input type="hidden" id="edit-type">
+                    <div><label class="block text-xs text-gray-500">NAME</label><input type="text" id="edit-modelName" required class="w-full p-3 rounded"></div>
+                    <div><label class="block text-xs text-gray-500">QTY</label><input type="number" id="edit-units" required class="w-full p-3 rounded"></div>
+                    <div class="flex gap-2"><button type="submit" class="flex-1 btn-primary py-3">SAVE</button><button type="button" onclick="closeEditModal()" class="px-4">BACK</button></div>
                 </form>
             </div>
         </div>
 
-        <div id="msg-box" class="fixed bottom-8 right-8 glass-panel p-4 border-l-4 border-blue-600 shadow-xl transform translate-y-24 transition-transform duration-300 pointer-events-none z-50">
+        <div id="msg-box" class="fixed bottom-8 right-8 glass-panel p-4 border-l-4 border-blue-600 transform translate-y-24 transition-transform duration-300 z-50">
             <p id="msg-text" class="text-sm font-bold text-blue-900"></p>
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { 
-            getAuth, 
-            signInAnonymously, 
-            onAuthStateChanged, 
-            signInWithCustomToken,
-            GoogleAuthProvider,
-            signInWithPopup,
-            signOut 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            collection, 
-            onSnapshot, 
-            addDoc, 
-            updateDoc, 
-            deleteDoc 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, collection, onSnapshot, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration
+        // Global Config
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'gunpla-tracker';
 
-        // State
+        let user = null;
         let backlog = [];
         let qmsv = [];
-        let currentActivePage = 'list';
-        let currentAddType = 'backlog';
-        let user = null;
         let unsubscribeBacklog = null;
         let unsubscribeQmsv = null;
 
-        // --- AUTHENTICATION ---
-        async function initAuth() {
+        // Force a UI update immediately to show we are working
+        const updateSyncUI = (status, colorClass) => {
+            const ind = document.getElementById('sync-indicator');
+            const txt = document.getElementById('sync-text');
+            ind.className = `w-2 h-2 rounded-full ${colorClass}`;
+            txt.innerText = status;
+        };
+
+        // Retry logic for authentication
+        async function authenticate(retries = 3) {
+            updateSyncUI('Authenticating...', 'bg-yellow-500 animate-pulse');
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else if (!auth.currentUser) {
+                } else {
                     await signInAnonymously(auth);
                 }
             } catch (err) {
-                console.error("Auth Error:", err);
-                updateSyncUI('error');
+                if (retries > 0) {
+                    setTimeout(() => authenticate(retries - 1), 2000);
+                } else {
+                    updateSyncUI('Offline Mode', 'bg-red-500');
+                    showMessage("Cloud connection failed. Using local session.");
+                    renderBacklog(); // Show empty/local state
+                }
             }
         }
 
@@ -411,324 +355,152 @@
             const nameDisp = document.getElementById('user-display-name');
             
             if (user) {
-                updateSyncUI('online');
+                updateSyncUI('Cloud Linked', 'bg-green-500');
                 authBtn.classList.remove('hidden');
-                
                 if (user.isAnonymous) {
-                    authBtn.innerText = "Connect Google Account";
-                    nameDisp.classList.add('hidden');
+                    authBtn.innerText = "Log in with Google";
                 } else {
                     authBtn.innerText = "Sign Out";
-                    nameDisp.innerText = user.displayName || user.email.split('@')[0];
+                    nameDisp.innerText = user.displayName || "Pilot";
                     nameDisp.classList.remove('hidden');
                 }
-                
-                setupListeners();
-            } else {
-                updateSyncUI('offline');
-                authBtn.classList.add('hidden');
-                nameDisp.classList.add('hidden');
+                setupDataListeners();
             }
         });
 
-        document.getElementById('auth-action-btn').addEventListener('click', async () => {
-            if (user && !user.isAnonymous) {
-                if (confirm("Sign out of Cloud Command?")) {
-                    await signOut(auth);
-                    location.reload(); // Refresh to clear listeners/state
-                }
-            } else {
-                const provider = new GoogleAuthProvider();
-                try {
-                    // This will link the anonymous data to the Google account if linking logic was added,
-                    // but for simplicity here we just sign in with Google.
-                    await signInWithPopup(auth, provider);
-                    showMessage("Access Granted: Welcome Commander.");
-                } catch (err) {
-                    console.error("Login Error:", err);
-                    showMessage("Identity Verification Failed.");
-                }
-            }
-        });
-
-        function updateSyncUI(state) {
-            const ind = document.getElementById('sync-indicator');
-            const txt = document.getElementById('sync-text');
-            if (state === 'online') {
-                ind.className = 'w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]';
-                txt.innerText = 'Cloud Synced';
-            } else if (state === 'error') {
-                ind.className = 'w-2 h-2 rounded-full bg-red-500';
-                txt.innerText = 'Sync Error';
-            } else {
-                ind.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
-                txt.innerText = 'Connecting...';
-            }
-        }
-
-        // --- FIRESTORE LISTENERS ---
-        function setupListeners() {
+        function setupDataListeners() {
             if (!user) return;
-
-            // Cleanup old listeners if any
             if (unsubscribeBacklog) unsubscribeBacklog();
             if (unsubscribeQmsv) unsubscribeQmsv();
 
-            // Backlog Listener
-            const backlogRef = collection(db, 'artifacts', appId, 'users', user.uid, 'backlog');
-            unsubscribeBacklog = onSnapshot(backlogRef, (snapshot) => {
-                backlog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (currentActivePage === 'list') renderBacklog();
-            }, (err) => console.error("Backlog Listen Error:", err));
+            const bPath = collection(db, 'artifacts', appId, 'users', user.uid, 'backlog');
+            unsubscribeBacklog = onSnapshot(bPath, (snap) => {
+                backlog = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderBacklog();
+            }, (e) => console.error("Sync Error:", e));
 
-            // QMSV Listener
-            const qmsvRef = collection(db, 'artifacts', appId, 'users', user.uid, 'qmsv');
-            unsubscribeQmsv = onSnapshot(qmsvRef, (snapshot) => {
-                qmsv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (currentActivePage === 'qmsv') renderQMSV();
-            }, (err) => console.error("QMSV Listen Error:", err));
+            const qPath = collection(db, 'artifacts', appId, 'users', user.uid, 'qmsv');
+            unsubscribeQmsv = onSnapshot(qPath, (snap) => {
+                qmsv = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderQMSV();
+            });
         }
 
-        // --- UI CORE ---
-        window.showPage = function(pageId) {
-            currentActivePage = pageId;
-            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-            document.getElementById(`page-${pageId}`).classList.remove('hidden');
-            
-            const title = document.getElementById('main-title');
-            const navB = document.getElementById('nav-backlog');
-            const navQ = document.getElementById('nav-qmsv');
-
-            navB.classList.remove('active-nav-blue');
-            navQ.classList.remove('active-nav-purple');
-
-            if (pageId === 'list') {
-                title.innerText = "Backlog Command";
-                title.className = "text-3xl md:text-5xl font-bold mb-2 text-blue-900";
-                navB.classList.add('active-nav-blue');
-                renderBacklog();
-            } else if (pageId === 'qmsv') {
-                title.innerText = "QMSV Archive";
-                title.className = "text-3xl md:text-5xl font-bold mb-2 text-purple-900";
-                navQ.classList.add('active-nav-purple');
-                renderQMSV();
+        // Action: Google Login
+        document.getElementById('auth-action-btn').onclick = async () => {
+            if (!user.isAnonymous) {
+                await signOut(auth);
+                location.reload();
+                return;
+            }
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                showMessage("Identity Confirmed.");
+            } catch (e) {
+                console.error(e);
+                showMessage("Login Interrupted.");
             }
         };
 
-        window.showAddForm = function(type) {
-            currentAddType = type;
+        // UI Helpers
+        window.showPage = (id) => {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${id}`).classList.remove('hidden');
+            if (id === 'list') renderBacklog();
+            if (id === 'qmsv') renderQMSV();
+        };
+
+        window.showAddForm = (type) => {
+            window.currentType = type;
+            document.getElementById('page-list').classList.add('hidden');
+            document.getElementById('page-qmsv').classList.add('hidden');
             document.getElementById('page-add').classList.remove('hidden');
-
-            const fTitle = document.getElementById('form-title');
-            const bLabel = document.getElementById('brand-label');
-            const sLabel = document.getElementById('size-label');
-            const pField = document.getElementById('price-field');
-            const pInput = document.getElementById('price');
-            const sBtn = document.getElementById('submit-btn');
-
-            if (type === 'backlog') {
-                fTitle.innerText = "Backlog Registry";
-                fTitle.classList.add('border-red-600', 'text-red-600');
-                fTitle.classList.remove('border-purple-600', 'text-purple-600');
-                bLabel.innerText = "BRAND";
-                sLabel.innerText = "GRADE / SIZE";
-                pField.style.display = 'block';
-                pInput.required = true;
-                sBtn.style.backgroundColor = 'var(--gundam-red)';
-            } else {
-                fTitle.innerText = "QMSV Registry";
-                fTitle.classList.add('border-purple-600', 'text-purple-600');
-                fTitle.classList.remove('border-red-600', 'text-red-600');
-                bLabel.innerText = "SERIES";
-                sLabel.innerText = "TYPE (COMMON/SECRET)";
-                pField.style.display = 'none';
-                pInput.required = false;
-                sBtn.style.backgroundColor = 'var(--qmsv-purple)';
-            }
-            document.getElementById('add-kit-form').reset();
+            document.getElementById('price-field').style.display = type === 'backlog' ? 'block' : 'none';
         };
 
-        window.cancelAdd = function() {
-            showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
-        };
+        window.cancelAdd = () => showPage('list');
 
         function renderBacklog() {
             const tbody = document.getElementById('backlog-table-body');
             const tfoot = document.getElementById('backlog-table-footer');
-            const countHeader = document.getElementById('kit-count-header');
-            
             tbody.innerHTML = '';
-            let totalUnits = 0, totalValue = 0;
-
-            if (backlog.length > 0) {
-                tfoot.classList.remove('hidden');
-                backlog.forEach((kit, index) => {
-                    totalUnits += parseInt(kit.units);
-                    totalValue += (kit.units * (kit.price || 0));
-                    tbody.innerHTML += `
-                        <tr class="border-b border-gray-100">
-                            <td class="py-4 no-column">${index+1}</td>
-                            <td class="py-4 text-xs text-gray-500">${kit.brand}</td>
-                            <td class="py-4 font-bold text-gray-900">${kit.modelName}</td>
-                            <td class="py-4"><span class="status-badge">${kit.size}</span></td>
-                            <td class="py-4 font-bold text-blue-900">${kit.units}</td>
-                            <td class="py-4 text-blue-700 font-mono">RM ${parseFloat(kit.price || 0).toFixed(2)}</td>
-                            <td class="py-4">
-                                <div class="flex gap-2">
-                                    <button onclick="openEdit('backlog', '${kit.id}')" class="text-gray-400 hover:text-blue-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                                    <button onclick="deleteItem('backlog', '${kit.id}')" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-                document.getElementById('total-units-cell').innerText = totalUnits;
-                document.getElementById('total-price-cell').innerText = `RM ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            } else {
+            if (backlog.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-gray-400 uppercase text-[10px]">No units in backlog</td></tr>';
                 tfoot.classList.add('hidden');
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-400 uppercase text-xs tracking-widest">No Operational Units</td></tr>`;
+                return;
             }
-            countHeader.innerText = `${totalUnits} UNITS`;
+            tfoot.classList.remove('hidden');
+            let total = 0, units = 0;
+            backlog.forEach((k, i) => {
+                total += (k.price || 0) * (k.units || 1);
+                units += parseInt(k.units || 1);
+                tbody.innerHTML += `
+                    <tr class="border-b border-gray-50 text-sm">
+                        <td class="py-3 font-bold text-blue-500">${i+1}</td>
+                        <td class="py-3 uppercase text-[10px] text-gray-400">${k.brand}</td>
+                        <td class="py-3 font-bold">${k.modelName}</td>
+                        <td class="py-3 text-[10px]"><span class="status-badge">${k.size}</span></td>
+                        <td class="py-3 font-mono">${k.units}</td>
+                        <td class="py-3 font-mono">RM ${(k.price || 0).toFixed(2)}</td>
+                        <td class="py-3">
+                            <button onclick="deleteItem('backlog', '${k.id}')" class="text-red-300 hover:text-red-600">×</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            document.getElementById('total-units-cell').innerText = units;
+            document.getElementById('total-price-cell').innerText = `RM ${total.toFixed(2)}`;
+            document.getElementById('kit-count-header').innerText = `${units} UNITS`;
         }
 
         function renderQMSV() {
             const tbody = document.getElementById('qmsv-table-body');
-            const empty = document.getElementById('qmsv-empty-state');
-            const countHeader = document.getElementById('qmsv-count-header');
-            
-            tbody.innerHTML = '';
-            let total = 0;
-
-            if (qmsv.length > 0) {
-                empty.classList.add('hidden');
-                qmsv.forEach((kit, index) => {
-                    total += parseInt(kit.units);
-                    tbody.innerHTML += `
-                        <tr class="border-b border-gray-100">
-                            <td class="py-4 no-column">${index+1}</td>
-                            <td class="py-4 text-xs text-purple-400">${kit.series || kit.brand}</td>
-                            <td class="py-4 font-bold text-gray-900">${kit.modelName}</td>
-                            <td class="py-4"><span class="status-badge qmsv-badge">${kit.type || kit.size}</span></td>
-                            <td class="py-4 font-bold text-purple-900">${kit.units}</td>
-                            <td class="py-4">
-                                <div class="flex gap-2">
-                                    <button onclick="openEdit('qmsv', '${kit.id}')" class="text-gray-400 hover:text-purple-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                                    <button onclick="deleteItem('qmsv', '${kit.id}')" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } else {
-                empty.classList.remove('hidden');
-            }
-            countHeader.innerText = `${total} FIGURES`;
+            tbody.innerHTML = qmsv.map((k, i) => `
+                <tr class="border-b border-gray-50 text-sm">
+                    <td class="py-3">${i+1}</td>
+                    <td class="py-3 text-[10px]">${k.brand}</td>
+                    <td class="py-3 font-bold">${k.modelName}</td>
+                    <td class="py-3">${k.size}</td>
+                    <td class="py-3">${k.units}</td>
+                    <td class="py-3"><button onclick="deleteItem('qmsv', '${k.id}')" class="text-red-300">×</button></td>
+                </tr>
+            `).join('') || '<tr><td colspan="6" class="text-center py-8 text-gray-400">Empty</td></tr>';
         }
 
-        window.sortData = function(type, prop) {
-            const list = (type === 'backlog' ? backlog : qmsv);
-            list.sort((a, b) => String(a[prop] || a['series'] || '').toLowerCase().localeCompare(String(b[prop] || b['series'] || '').toLowerCase()));
-            type === 'backlog' ? renderBacklog() : renderQMSV();
-            showMessage(`Client-side Sort: ${prop}`);
+        window.deleteItem = async (type, id) => {
+            if (!user) return;
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, type, id));
+            showMessage("Registry Updated.");
         };
 
-        window.openEdit = function(type, id) {
-            const item = (type === 'backlog' ? backlog.find(x => x.id === id) : qmsv.find(x => x.id === id));
-            if (!item) return;
-
-            document.getElementById('edit-type').value = type;
-            document.getElementById('edit-id').value = id;
-            document.getElementById('edit-brand').value = item.brand || item.series;
-            document.getElementById('edit-modelName').value = item.modelName;
-            document.getElementById('edit-size').value = item.size || item.type;
-            document.getElementById('edit-units').value = item.units;
-            document.getElementById('edit-price').value = item.price || 0;
-            
-            document.getElementById('edit-price-field').style.display = (type === 'backlog' ? 'block' : 'none');
-            document.getElementById('edit-modal').classList.remove('hidden');
-        };
-
-        window.closeEditModal = function() { document.getElementById('edit-modal').classList.add('hidden'); };
-
-        document.getElementById('edit-kit-form').addEventListener('submit', async (e) => {
+        document.getElementById('add-kit-form').onsubmit = async (e) => {
             e.preventDefault();
             if (!user) return;
-
-            const type = document.getElementById('edit-type').value;
-            const id = document.getElementById('edit-id').value;
-            const updated = {
-                brand: document.getElementById('edit-brand').value,
-                series: document.getElementById('edit-brand').value,
-                modelName: document.getElementById('edit-modelName').value,
-                size: document.getElementById('edit-size').value,
-                type: document.getElementById('edit-size').value,
-                units: parseInt(document.getElementById('edit-units').value),
-                price: parseFloat(document.getElementById('edit-price').value) || 0
-            };
-
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, type, id);
-                await updateDoc(docRef, updated);
-                closeEditModal();
-                showMessage("Cloud data updated.");
-            } catch (err) {
-                console.error("Update error:", err);
-                showMessage("Sync Error!");
-            }
-        });
-
-        window.deleteItem = async function(type, id) {
-            if (!user) return;
-            if (confirm(`Permanently delete this from cloud ${type}?`)) {
-                try {
-                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, type, id);
-                    await deleteDoc(docRef);
-                    showMessage("Deleted from cloud.");
-                } catch (err) {
-                    console.error("Delete error:", err);
-                    showMessage("Delete failed.");
-                }
-            }
-        };
-
-        document.getElementById('add-kit-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!user) return;
-
-            const newItem = {
+            const data = {
                 brand: document.getElementById('brand').value,
-                series: document.getElementById('brand').value,
                 modelName: document.getElementById('modelName').value,
                 size: document.getElementById('size').value,
-                type: document.getElementById('size').value,
                 units: parseInt(document.getElementById('units').value),
                 price: parseFloat(document.getElementById('price').value) || 0,
-                createdAt: new Date().toISOString()
+                ts: Date.now()
             };
+            await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, window.currentType), data);
+            e.target.reset();
+            showPage('list');
+            showMessage("Deployment Successful.");
+        };
 
-            try {
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, currentAddType);
-                await addDoc(colRef, newItem);
-                showMessage("Cloud registry confirmed.");
-                showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
-            } catch (err) {
-                console.error("Add error:", err);
-                showMessage("Failed to save to cloud.");
-            }
-        });
-
-        function showMessage(text) {
-            const box = document.getElementById('msg-box');
-            const msgText = document.getElementById('msg-text');
-            if (msgText) msgText.innerText = `[SYSTEM]: ${text}`;
-            if (box) box.style.transform = 'translateY(0)';
-            setTimeout(() => { if (box) box.style.transform = 'translateY(150%)'; }, 2500);
+        function showMessage(t) {
+            const b = document.getElementById('msg-box');
+            document.getElementById('msg-text').innerText = t;
+            b.style.transform = 'translateY(0)';
+            setTimeout(() => b.style.transform = 'translateY(150%)', 2500);
         }
 
-        // Init App
-        initAuth();
-        showPage('list');
+        // Start Auth
+        authenticate();
+
     </script>
 </body>
 </html>
