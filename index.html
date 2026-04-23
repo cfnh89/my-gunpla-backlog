@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gunpla Inventory Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400&display=swap');
 
@@ -80,6 +81,19 @@
             box-shadow: 0 0 15px rgba(98, 0, 234, 0.3);
         }
 
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #6c757d;
+            color: #6c757d;
+            transition: all 0.3s ease;
+        }
+
+        .btn-outline:hover {
+            border-color: var(--gundam-blue);
+            color: var(--gundam-blue);
+            background: rgba(0, 86, 179, 0.05);
+        }
+
         .sort-btn {
             font-size: 0.65rem;
             padding: 4px 8px;
@@ -137,49 +151,21 @@
         .top-left { top: 0; left: 0; border-right: 0; border-bottom: 0; }
         .bottom-right { bottom: 0; right: 0; border-left: 0; border-top: 0; }
 
+        /* Modal Overlay */
         #edit-modal {
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(4px);
         }
-
-        #sync-status {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            font-size: 0.65rem;
-            z-index: 100;
-        }
-
-        .google-btn {
-            background: #4285F4;
-            color: white;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            transition: opacity 0.2s;
-        }
-        .google-btn:hover { opacity: 0.9; }
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
-
-    <div id="sync-status" class="flex flex-col items-end gap-2">
-        <div class="flex items-center gap-2 bg-white/90 px-3 py-1.5 rounded-full border border-gray-200 shadow-sm">
-            <div id="sync-indicator" class="w-2 h-2 rounded-full bg-yellow-400"></div>
-            <span id="sync-text" class="text-gray-500 uppercase tracking-tighter font-bold">Connecting...</span>
-            <span id="user-display-name" class="hidden text-blue-600 font-bold ml-1"></span>
-        </div>
-        <button id="auth-action-btn" class="google-btn text-[10px] hidden uppercase tracking-widest">
-            Sign in with Google
-        </button>
-    </div>
 
     <div id="app" class="max-w-4xl mx-auto relative pb-20">
         <header class="mb-12 text-center relative py-6">
             <div class="corner-accent top-left"></div>
             <div class="corner-accent bottom-right"></div>
             <h1 id="main-title" class="text-3xl md:text-5xl font-bold mb-2 text-blue-900">Backlog Command</h1>
-            <p id="sub-title" class="text-gray-400 text-sm tracking-widest uppercase">Multi-Device Cloud Sync</p>
+            <p id="sub-title" class="text-gray-400 text-sm tracking-widest uppercase">Mobile Suit Inventory System</p>
         </header>
 
         <div id="main-nav" class="flex flex-col md:flex-row gap-3 justify-center mb-12">
@@ -191,21 +177,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
                 QMSV Mini
             </button>
+            <button onclick="showPage('add')" class="nav-btn btn-secondary px-6 py-3 rounded-sm flex items-center justify-center gap-2 flex-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                Register Kit
+            </button>
         </div>
 
         <!-- Backlog List Page -->
         <div id="page-list" class="page hidden">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
-                <div class="flex items-center gap-3">
-                    <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
-                    <button onclick="sortData('backlog', 'modelName')" class="sort-btn">NAME</button>
-                    <button onclick="sortData('backlog', 'brand')" class="sort-btn">BRAND</button>
-                    <button onclick="sortData('backlog', 'price')" class="sort-btn">PRICE</button>
-                </div>
-                <button onclick="showAddForm('backlog')" class="btn-secondary px-4 py-2 rounded text-xs font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                    NEW ENTRY
-                </button>
+            <div class="flex flex-wrap items-center gap-3 mb-4 px-2">
+                <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
+                <button onclick="sortData('backlog', 'modelName')" class="sort-btn">NAME</button>
+                <button onclick="sortData('backlog', 'brand')" class="sort-btn">BRAND</button>
+                <button onclick="sortData('backlog', 'price')" class="sort-btn">PRICE</button>
             </div>
 
             <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6">
@@ -239,16 +223,10 @@
 
         <!-- QMSV Mini Collection Page -->
         <div id="page-qmsv" class="page hidden">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 px-2">
-                <div class="flex items-center gap-3">
-                    <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
-                    <button onclick="sortData('qmsv', 'modelName')" class="sort-btn">NAME</button>
-                    <button onclick="sortData('qmsv', 'series')" class="sort-btn">SERIES</button>
-                </div>
-                <button onclick="showAddForm('qmsv')" class="btn-qmsv px-4 py-2 rounded text-xs font-bold flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-                    ADD FIGURE
-                </button>
+            <div class="flex flex-wrap items-center gap-3 mb-4 px-2">
+                <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
+                <button onclick="sortData('qmsv', 'modelName')" class="sort-btn">NAME</button>
+                <button onclick="sortData('qmsv', 'series')" class="sort-btn">SERIES</button>
             </div>
 
             <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6 border-purple-200">
@@ -278,34 +256,42 @@
         <!-- Add Form Page -->
         <div id="page-add" class="page hidden">
             <div class="glass-panel p-8 rounded-lg max-w-lg mx-auto relative">
-                <h2 id="form-title" class="text-xl mb-8 border-l-4 pl-4 uppercase tracking-tighter">Registry</h2>
+                <h2 class="text-xl text-red-600 mb-8 border-l-4 border-red-600 pl-4">Registry</h2>
                 
+                <div class="mb-6">
+                    <label class="block text-xs text-gray-400 mb-2 uppercase">Target Database</label>
+                    <div class="flex gap-2">
+                        <button onclick="setAddType('backlog')" id="type-backlog" class="flex-1 py-2 text-xs border border-blue-600 bg-blue-600 text-white rounded">Gundam Backlog</button>
+                        <button onclick="setAddType('qmsv')" id="type-qmsv" class="flex-1 py-2 text-xs border border-purple-600 text-purple-600 rounded">QMSV Mini</button>
+                    </div>
+                </div>
+
                 <form id="add-kit-form" class="space-y-6">
                     <div id="brand-field">
-                        <label id="brand-label" class="block text-xs text-gray-500 mb-2 uppercase">BRAND</label>
-                        <input type="text" id="brand" required class="w-full p-3 rounded">
+                        <label class="block text-xs text-gray-500 mb-2">BRAND / SERIES</label>
+                        <input type="text" id="brand" required placeholder="e.g. Bandai / Series 1" class="w-full p-3 rounded">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 mb-2 uppercase">MODEL NAME</label>
-                        <input type="text" id="modelName" required class="w-full p-3 rounded">
+                        <label class="block text-xs text-gray-500 mb-2">MODEL NAME</label>
+                        <input type="text" id="modelName" required placeholder="e.g. RX-78-2 Gundam" class="w-full p-3 rounded">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label id="size-label" class="block text-xs text-gray-500 mb-2 uppercase">GRADE / SIZE</label>
-                            <input type="text" id="size" required class="w-full p-3 rounded">
+                            <label id="size-label" class="block text-xs text-gray-500 mb-2">GRADE / SIZE</label>
+                            <input type="text" id="size" required placeholder="e.g. MG 1/100" class="w-full p-3 rounded">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-500 mb-2 uppercase">QTY</label>
+                            <label class="block text-xs text-gray-500 mb-2">QTY</label>
                             <input type="number" id="units" required min="1" value="1" class="w-full p-3 rounded">
                         </div>
                     </div>
                     <div id="price-field">
-                        <label class="block text-xs text-gray-500 mb-2 uppercase">PRICE PER UNIT (RM)</label>
+                        <label class="block text-xs text-gray-500 mb-2">PRICE PER UNIT (RM)</label>
                         <input type="number" step="0.01" id="price" required placeholder="0.00" class="w-full p-3 rounded">
                     </div>
                     <div class="pt-4 flex gap-3">
-                        <button type="submit" id="submit-btn" class="flex-1 py-3 rounded font-bold text-white">CONFIRM REGISTRY</button>
-                        <button type="button" onclick="cancelAdd()" class="px-6 py-3 border border-gray-300 text-gray-500 hover:text-gray-800 transition-colors">CANCEL</button>
+                        <button type="submit" class="flex-1 btn-secondary py-3 rounded font-bold">CONFIRM REGISTRY</button>
+                        <button type="button" onclick="showPage('list')" class="px-6 py-3 border border-gray-300 text-gray-500 hover:text-gray-800 transition-colors">CANCEL</button>
                     </div>
                 </form>
             </div>
@@ -316,7 +302,7 @@
             <div class="glass-panel p-8 rounded-lg max-w-lg w-full relative">
                 <h2 class="text-xl text-blue-600 mb-8 border-l-4 border-blue-600 pl-4 uppercase tracking-widest">Update Data</h2>
                 <form id="edit-kit-form" class="space-y-6">
-                    <input type="hidden" id="edit-id">
+                    <input type="hidden" id="edit-index">
                     <input type="hidden" id="edit-type">
                     <div>
                         <label class="block text-xs text-gray-500 mb-2">BRAND / SERIES</label>
@@ -353,149 +339,27 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { 
-            getAuth, 
-            signInAnonymously, 
-            onAuthStateChanged, 
-            signInWithCustomToken,
-            GoogleAuthProvider,
-            signInWithPopup,
-            signOut 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            doc, 
-            collection, 
-            onSnapshot, 
-            addDoc, 
-            updateDoc, 
-            deleteDoc 
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script>
+        // Separate Data States
+        let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || [
+            { brand: 'Bandai', modelName: 'RG Hi-Nu Gundam', size: '1/144', units: 1, price: 185.00 },
+            { brand: 'Bandai', modelName: 'MG Wing Zero Ver.Ka', size: '1/100', units: 1, price: 230.00 }
+        ];
 
-        // Firebase Configuration
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'gunpla-tracker';
+        let qmsv = JSON.parse(localStorage.getItem('qmsv_collection')) || [
+            { series: 'Series 1', modelName: 'RX-78-2 Gundam', type: 'Common', units: 1 },
+            { series: 'Series 2', modelName: 'MS-06S Zaku II', type: 'Secret', units: 1 }
+        ];
 
-        // State
-        let backlog = [];
-        let qmsv = [];
-        let currentActivePage = 'list';
         let currentAddType = 'backlog';
-        let user = null;
-        let unsubscribeBacklog = null;
-        let unsubscribeQmsv = null;
 
-        // --- AUTHENTICATION ---
-        async function initAuth() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                }
-            } catch (err) {
-                console.error("Auth Error:", err);
-                updateSyncUI('error');
-            }
-        }
-
-        onAuthStateChanged(auth, (u) => {
-            user = u;
-            const authBtn = document.getElementById('auth-action-btn');
-            const nameDisp = document.getElementById('user-display-name');
-            
-            if (user) {
-                updateSyncUI('online');
-                authBtn.classList.remove('hidden');
-                
-                if (user.isAnonymous) {
-                    authBtn.innerText = "Connect Google Account";
-                    nameDisp.classList.add('hidden');
-                } else {
-                    authBtn.innerText = "Sign Out";
-                    nameDisp.innerText = user.displayName || user.email.split('@')[0];
-                    nameDisp.classList.remove('hidden');
-                }
-                
-                setupListeners();
-            } else {
-                updateSyncUI('offline');
-                authBtn.classList.add('hidden');
-                nameDisp.classList.add('hidden');
-            }
-        });
-
-        document.getElementById('auth-action-btn').addEventListener('click', async () => {
-            if (user && !user.isAnonymous) {
-                if (confirm("Sign out of Cloud Command?")) {
-                    await signOut(auth);
-                    location.reload(); // Refresh to clear listeners/state
-                }
-            } else {
-                const provider = new GoogleAuthProvider();
-                try {
-                    // This will link the anonymous data to the Google account if linking logic was added,
-                    // but for simplicity here we just sign in with Google.
-                    await signInWithPopup(auth, provider);
-                    showMessage("Access Granted: Welcome Commander.");
-                } catch (err) {
-                    console.error("Login Error:", err);
-                    showMessage("Identity Verification Failed.");
-                }
-            }
-        });
-
-        function updateSyncUI(state) {
-            const ind = document.getElementById('sync-indicator');
-            const txt = document.getElementById('sync-text');
-            if (state === 'online') {
-                ind.className = 'w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]';
-                txt.innerText = 'Cloud Synced';
-            } else if (state === 'error') {
-                ind.className = 'w-2 h-2 rounded-full bg-red-500';
-                txt.innerText = 'Sync Error';
-            } else {
-                ind.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
-                txt.innerText = 'Connecting...';
-            }
-        }
-
-        // --- FIRESTORE LISTENERS ---
-        function setupListeners() {
-            if (!user) return;
-
-            // Cleanup old listeners if any
-            if (unsubscribeBacklog) unsubscribeBacklog();
-            if (unsubscribeQmsv) unsubscribeQmsv();
-
-            // Backlog Listener
-            const backlogRef = collection(db, 'artifacts', appId, 'users', user.uid, 'backlog');
-            unsubscribeBacklog = onSnapshot(backlogRef, (snapshot) => {
-                backlog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (currentActivePage === 'list') renderBacklog();
-            }, (err) => console.error("Backlog Listen Error:", err));
-
-            // QMSV Listener
-            const qmsvRef = collection(db, 'artifacts', appId, 'users', user.uid, 'qmsv');
-            unsubscribeQmsv = onSnapshot(qmsvRef, (snapshot) => {
-                qmsv = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (currentActivePage === 'qmsv') renderQMSV();
-            }, (err) => console.error("QMSV Listen Error:", err));
-        }
-
-        // --- UI CORE ---
-        window.showPage = function(pageId) {
-            currentActivePage = pageId;
+        function showPage(pageId) {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.getElementById(`page-${pageId}`).classList.remove('hidden');
             
+            // UI State Adjustments
             const title = document.getElementById('main-title');
+            const sub = document.getElementById('sub-title');
             const navB = document.getElementById('nav-backlog');
             const navQ = document.getElementById('nav-qmsv');
 
@@ -512,46 +376,34 @@
                 title.className = "text-3xl md:text-5xl font-bold mb-2 text-purple-900";
                 navQ.classList.add('active-nav-purple');
                 renderQMSV();
+            } else if (pageId === 'add') {
+                title.innerText = "Registry Gate";
+                setAddType(currentAddType);
             }
-        };
+        }
 
-        window.showAddForm = function(type) {
+        function setAddType(type) {
             currentAddType = type;
-            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-            document.getElementById('page-add').classList.remove('hidden');
-
-            const fTitle = document.getElementById('form-title');
-            const bLabel = document.getElementById('brand-label');
-            const sLabel = document.getElementById('size-label');
-            const pField = document.getElementById('price-field');
-            const pInput = document.getElementById('price');
-            const sBtn = document.getElementById('submit-btn');
+            const bBtn = document.getElementById('type-backlog');
+            const qBtn = document.getElementById('type-qmsv');
+            const priceField = document.getElementById('price-field');
+            const sizeLabel = document.getElementById('size-label');
+            const priceInput = document.getElementById('price');
 
             if (type === 'backlog') {
-                fTitle.innerText = "Backlog Registry";
-                fTitle.classList.add('border-red-600', 'text-red-600');
-                fTitle.classList.remove('border-purple-600', 'text-purple-600');
-                bLabel.innerText = "BRAND";
-                sLabel.innerText = "GRADE / SIZE";
-                pField.style.display = 'block';
-                pInput.required = true;
-                sBtn.style.backgroundColor = 'var(--gundam-red)';
+                bBtn.className = "flex-1 py-2 text-xs border border-blue-600 bg-blue-600 text-white rounded";
+                qBtn.className = "flex-1 py-2 text-xs border border-purple-600 text-purple-600 rounded";
+                priceField.style.display = 'block';
+                sizeLabel.innerText = "GRADE / SIZE";
+                priceInput.required = true;
             } else {
-                fTitle.innerText = "QMSV Registry";
-                fTitle.classList.add('border-purple-600', 'text-purple-600');
-                fTitle.classList.remove('border-red-600', 'text-red-600');
-                bLabel.innerText = "SERIES";
-                sLabel.innerText = "TYPE (COMMON/SECRET)";
-                pField.style.display = 'none';
-                pInput.required = false;
-                sBtn.style.backgroundColor = 'var(--qmsv-purple)';
+                qBtn.className = "flex-1 py-2 text-xs border border-purple-600 bg-purple-600 text-white rounded";
+                bBtn.className = "flex-1 py-2 text-xs border border-blue-600 text-blue-600 rounded";
+                priceField.style.display = 'none';
+                sizeLabel.innerText = "TYPE (COMMON/SECRET)";
+                priceInput.required = false;
             }
-            document.getElementById('add-kit-form').reset();
-        };
-
-        window.cancelAdd = function() {
-            showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
-        };
+        }
 
         function renderBacklog() {
             const tbody = document.getElementById('backlog-table-body');
@@ -565,7 +417,7 @@
                 tfoot.classList.remove('hidden');
                 backlog.forEach((kit, index) => {
                     totalUnits += parseInt(kit.units);
-                    totalValue += (kit.units * (kit.price || 0));
+                    totalValue += (kit.units * kit.price);
                     tbody.innerHTML += `
                         <tr class="border-b border-gray-100">
                             <td class="py-4 no-column">${index+1}</td>
@@ -573,11 +425,11 @@
                             <td class="py-4 font-bold text-gray-900">${kit.modelName}</td>
                             <td class="py-4"><span class="status-badge">${kit.size}</span></td>
                             <td class="py-4 font-bold text-blue-900">${kit.units}</td>
-                            <td class="py-4 text-blue-700 font-mono">RM ${parseFloat(kit.price || 0).toFixed(2)}</td>
+                            <td class="py-4 text-blue-700 font-mono">RM ${parseFloat(kit.price).toFixed(2)}</td>
                             <td class="py-4">
                                 <div class="flex gap-2">
-                                    <button onclick="openEdit('backlog', '${kit.id}')" class="text-gray-400 hover:text-blue-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                                    <button onclick="deleteItem('backlog', '${kit.id}')" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                    <button onclick="openEdit('backlog', ${index})" class="text-gray-400 hover:text-blue-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                                    <button onclick="deleteItem('backlog', ${index})" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                                 </div>
                             </td>
                         </tr>
@@ -587,7 +439,7 @@
                 document.getElementById('total-price-cell').innerText = `RM ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             } else {
                 tfoot.classList.add('hidden');
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-400 uppercase text-xs tracking-widest">No Operational Units</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-gray-400">NO KITS IN BACKLOG</td></tr>`;
             }
             countHeader.innerText = `${totalUnits} UNITS`;
         }
@@ -613,8 +465,8 @@
                             <td class="py-4 font-bold text-purple-900">${kit.units}</td>
                             <td class="py-4">
                                 <div class="flex gap-2">
-                                    <button onclick="openEdit('qmsv', '${kit.id}')" class="text-gray-400 hover:text-purple-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-                                    <button onclick="deleteItem('qmsv', '${kit.id}')" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                    <button onclick="openEdit('qmsv', ${index})" class="text-gray-400 hover:text-purple-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                                    <button onclick="deleteItem('qmsv', ${index})" class="text-gray-400 hover:text-red-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                                 </div>
                             </td>
                         </tr>
@@ -626,19 +478,18 @@
             countHeader.innerText = `${total} FIGURES`;
         }
 
-        window.sortData = function(type, prop) {
+        function sortData(type, prop) {
             const list = (type === 'backlog' ? backlog : qmsv);
-            list.sort((a, b) => String(a[prop] || a['series'] || '').toLowerCase().localeCompare(String(b[prop] || b['series'] || '').toLowerCase()));
+            list.sort((a, b) => String(a[prop] || a['series']).toLowerCase().localeCompare(String(b[prop] || b['series']).toLowerCase()));
+            saveAll();
             type === 'backlog' ? renderBacklog() : renderQMSV();
-            showMessage(`Client-side Sort: ${prop}`);
-        };
+            showMessage(`Sorted ${type} by ${prop}`);
+        }
 
-        window.openEdit = function(type, id) {
-            const item = (type === 'backlog' ? backlog.find(x => x.id === id) : qmsv.find(x => x.id === id));
-            if (!item) return;
-
+        function openEdit(type, index) {
+            const item = (type === 'backlog' ? backlog[index] : qmsv[index]);
             document.getElementById('edit-type').value = type;
-            document.getElementById('edit-id').value = id;
+            document.getElementById('edit-index').value = index;
             document.getElementById('edit-brand').value = item.brand || item.series;
             document.getElementById('edit-modelName').value = item.modelName;
             document.getElementById('edit-size').value = item.size || item.type;
@@ -647,16 +498,14 @@
             
             document.getElementById('edit-price-field').style.display = (type === 'backlog' ? 'block' : 'none');
             document.getElementById('edit-modal').classList.remove('hidden');
-        };
+        }
 
-        window.closeEditModal = function() { document.getElementById('edit-modal').classList.add('hidden'); };
+        function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
 
-        document.getElementById('edit-kit-form').addEventListener('submit', async (e) => {
+        document.getElementById('edit-kit-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            if (!user) return;
-
             const type = document.getElementById('edit-type').value;
-            const id = document.getElementById('edit-id').value;
+            const index = document.getElementById('edit-index').value;
             const updated = {
                 brand: document.getElementById('edit-brand').value,
                 series: document.getElementById('edit-brand').value,
@@ -666,36 +515,26 @@
                 units: parseInt(document.getElementById('edit-units').value),
                 price: parseFloat(document.getElementById('edit-price').value) || 0
             };
-
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'users', user.uid, type, id);
-                await updateDoc(docRef, updated);
-                closeEditModal();
-                showMessage("Cloud data updated.");
-            } catch (err) {
-                console.error("Update error:", err);
-                showMessage("Sync Error!");
-            }
+            if (type === 'backlog') backlog[index] = updated;
+            else qmsv[index] = updated;
+            saveAll();
+            closeEditModal();
+            showPage(type === 'backlog' ? 'list' : 'qmsv');
+            showMessage("Entry Updated.");
         });
 
-        window.deleteItem = async function(type, id) {
-            if (!user) return;
-            if (confirm(`Permanently delete this from cloud ${type}?`)) {
-                try {
-                    const docRef = doc(db, 'artifacts', appId, 'users', user.uid, type, id);
-                    await deleteDoc(docRef);
-                    showMessage("Deleted from cloud.");
-                } catch (err) {
-                    console.error("Delete error:", err);
-                    showMessage("Delete failed.");
-                }
+        function deleteItem(type, index) {
+            if (confirm(`Delete from ${type}?`)) {
+                if (type === 'backlog') backlog.splice(index, 1);
+                else qmsv.splice(index, 1);
+                saveAll();
+                type === 'backlog' ? renderBacklog() : renderQMSV();
+                showMessage("Removed.");
             }
-        };
+        }
 
-        document.getElementById('add-kit-form').addEventListener('submit', async (e) => {
+        document.getElementById('add-kit-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            if (!user) return;
-
             const newItem = {
                 brand: document.getElementById('brand').value,
                 series: document.getElementById('brand').value,
@@ -703,32 +542,29 @@
                 size: document.getElementById('size').value,
                 type: document.getElementById('size').value,
                 units: parseInt(document.getElementById('units').value),
-                price: parseFloat(document.getElementById('price').value) || 0,
-                createdAt: new Date().toISOString()
+                price: parseFloat(document.getElementById('price').value) || 0
             };
-
-            try {
-                const colRef = collection(db, 'artifacts', appId, 'users', user.uid, currentAddType);
-                await addDoc(colRef, newItem);
-                showMessage("Cloud registry confirmed.");
-                showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
-            } catch (err) {
-                console.error("Add error:", err);
-                showMessage("Failed to save to cloud.");
-            }
+            if (currentAddType === 'backlog') backlog.push(newItem);
+            else qmsv.push(newItem);
+            saveAll();
+            e.target.reset();
+            showMessage("Successfully Registered.");
+            showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
         });
+
+        function saveAll() {
+            localStorage.setItem('gunpla_backlog', JSON.stringify(backlog));
+            localStorage.setItem('qmsv_collection', JSON.stringify(qmsv));
+        }
 
         function showMessage(text) {
             const box = document.getElementById('msg-box');
-            const msgText = document.getElementById('msg-text');
-            if (msgText) msgText.innerText = `[SYSTEM]: ${text}`;
-            if (box) box.style.transform = 'translateY(0)';
-            setTimeout(() => { if (box) box.style.transform = 'translateY(150%)'; }, 2500);
+            document.getElementById('msg-text').innerText = `[LOG]: ${text}`;
+            box.style.transform = 'translateY(0)';
+            setTimeout(() => { box.style.transform = 'translateY(150%)'; }, 2500);
         }
 
-        // Init App
-        initAuth();
-        showPage('list');
+        window.onload = () => showPage('list');
     </script>
 </body>
 </html>
