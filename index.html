@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gunpla Inventory Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Library for Excel Parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400&display=swap');
@@ -81,6 +80,20 @@
             background: rgba(0, 86, 179, 0.05);
         }
 
+        .sort-btn {
+            font-size: 0.65rem;
+            padding: 4px 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            color: #6c757d;
+            transition: all 0.2s;
+        }
+
+        .sort-btn:hover {
+            border-color: var(--gundam-blue);
+            color: var(--gundam-blue);
+        }
+
         input {
             background: var(--gundam-accent) !important;
             border: 1px solid rgba(0, 0, 0, 0.1) !important;
@@ -93,19 +106,10 @@
             background: white !important;
         }
 
-        table {
-            border-collapse: separate;
-            border-spacing: 0 8px;
-        }
+        table { border-collapse: separate; border-spacing: 0 8px; }
 
-        tr {
-            transition: transform 0.2s;
-        }
-
-        tr:hover {
-            transform: scale(1.005);
-            background: rgba(0, 86, 179, 0.02);
-        }
+        tr { transition: transform 0.2s; }
+        tr:hover { transform: scale(1.005); background: rgba(0, 86, 179, 0.02); }
 
         .status-badge {
             font-size: 0.7rem;
@@ -116,11 +120,7 @@
             border: 1px solid var(--gundam-blue);
         }
 
-        .no-column {
-            color: var(--gundam-blue);
-            font-weight: bold;
-            width: 40px;
-        }
+        .no-column { color: var(--gundam-blue); font-weight: bold; width: 40px; }
 
         .corner-accent {
             position: absolute;
@@ -135,7 +135,6 @@
 <body class="min-h-screen p-4 md:p-8">
 
     <div id="app" class="max-w-4xl mx-auto relative pb-20">
-        <!-- Header -->
         <header class="mb-12 text-center relative py-6">
             <div class="corner-accent top-left"></div>
             <div class="corner-accent bottom-right"></div>
@@ -143,20 +142,26 @@
             <p class="text-gray-400 text-sm tracking-widest">MOBILE SUIT INVENTORY MANAGEMENT SYSTEM</p>
         </header>
 
-        <!-- Main Navigation Buttons -->
         <div id="main-nav" class="flex flex-col md:flex-row gap-4 justify-center mb-12">
-            <button onclick="showPage('list')" class="nav-btn btn-primary px-12 py-4 rounded-sm flex items-center justify-center gap-2">
+            <button onclick="showPage('list')" class="nav-btn btn-primary px-12 py-4 rounded-sm flex items-center justify-center gap-2 w-full md:w-auto">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
                 View Backlog
             </button>
-            <button onclick="showPage('add')" class="nav-btn btn-secondary px-12 py-4 rounded-sm flex items-center justify-center gap-2">
+            <button onclick="showPage('add')" class="nav-btn btn-secondary px-12 py-4 rounded-sm flex items-center justify-center gap-2 w-full md:w-auto">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                 Register Kit
             </button>
         </div>
 
-        <!-- View: List Page -->
         <div id="page-list" class="page hidden">
+            <div class="flex flex-wrap items-center gap-3 mb-4 px-2">
+                <span class="text-[10px] text-gray-400 font-bold tracking-tighter uppercase">Sort By:</span>
+                <button onclick="sortBacklog('modelName')" class="sort-btn">NAME</button>
+                <button onclick="sortBacklog('brand')" class="sort-btn">BRAND</button>
+                <button onclick="sortBacklog('size')" class="sort-btn">SIZE</button>
+                <button onclick="sortBacklog('price')" class="sort-btn">PRICE</button>
+            </div>
+
             <div class="glass-panel p-6 rounded-lg overflow-x-auto mb-6">
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-xl text-blue-800">Inventory Feed</h2>
@@ -178,19 +183,16 @@
                         </tr>
                     </thead>
                     <tbody id="backlog-table-body">
-                        <!-- Data injected here -->
-                    </tbody>
+                        </tbody>
                 </table>
                 <div id="empty-state" class="text-center py-12 text-gray-400 hidden">
                     NO MOBILE SUITS DETECTED IN BACKLOG
                 </div>
             </div>
 
-            <!-- Import Section at Bottom of List -->
             <div class="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200 bg-gray-50/50 rounded-b-lg">
                 <div class="text-xs text-gray-400 uppercase tracking-widest">Data Management Tools</div>
                 <div class="flex gap-2">
-                    <!-- Hidden File Input for Excel -->
                     <input type="file" id="excel-upload" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcel(this)">
                     <button onclick="document.getElementById('excel-upload').click()" class="text-xs btn-outline px-4 py-2 rounded flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -203,7 +205,6 @@
             </div>
         </div>
 
-        <!-- View: Add Page -->
         <div id="page-add" class="page hidden">
             <div class="glass-panel p-8 rounded-lg max-w-lg mx-auto relative">
                 <h2 class="text-xl text-red-600 mb-8 border-l-4 border-red-600 pl-4">Deployment Registry</h2>
@@ -211,30 +212,25 @@
                 <form id="add-kit-form" class="space-y-6">
                     <div>
                         <label class="block text-xs text-gray-500 mb-2">MANUFACTURER / BRAND</label>
-                        <input type="text" id="brand" required placeholder="e.g. Bandai, Kotobukiya" 
-                               class="w-full p-3 rounded">
+                        <input type="text" id="brand" required placeholder="e.g. Bandai, Kotobukiya" class="w-full p-3 rounded">
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-2">MODEL NAME</label>
-                        <input type="text" id="modelName" required placeholder="e.g. RX-78-2 Gundam" 
-                               class="w-full p-3 rounded">
+                        <input type="text" id="modelName" required placeholder="e.g. RX-78-2 Gundam" class="w-full p-3 rounded">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs text-gray-500 mb-2">GRADE / SIZE</label>
-                            <input type="text" id="size" required placeholder="e.g. MG 1/100" 
-                                   class="w-full p-3 rounded">
+                            <input type="text" id="size" required placeholder="e.g. MG 1/100" class="w-full p-3 rounded">
                         </div>
                         <div>
                             <label class="block text-xs text-gray-500 mb-2">UNITS (QTY)</label>
-                            <input type="number" id="units" required min="1" value="1" 
-                                   class="w-full p-3 rounded">
+                            <input type="number" id="units" required min="1" value="1" class="w-full p-3 rounded">
                         </div>
                     </div>
                     <div>
                         <label class="block text-xs text-gray-500 mb-2">PRICE PER UNIT (RM)</label>
-                        <input type="number" step="0.01" id="price" required placeholder="0.00" 
-                               class="w-full p-3 rounded">
+                        <input type="number" step="0.01" id="price" required placeholder="0.00" class="w-full p-3 rounded">
                     </div>
                     <div class="pt-4 flex gap-3">
                         <button type="submit" class="flex-1 btn-secondary py-3 rounded font-bold">CONFIRM REGISTRATION</button>
@@ -244,27 +240,18 @@
             </div>
         </div>
 
-        <!-- Notification Message Box (Custom Alert) -->
         <div id="msg-box" class="fixed bottom-8 right-8 glass-panel p-4 border-l-4 border-blue-600 shadow-xl transform translate-y-24 transition-transform duration-300 pointer-events-none z-50">
             <p id="msg-text" class="text-sm font-bold text-blue-900"></p>
         </div>
     </div>
 
     <script>
-        // Data Management
-        let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || [
-            { id: 1, brand: 'Bandai', modelName: 'RG Hi-Nu Gundam', size: '1/144', units: 1, price: 185.00 },
-            { id: 2, brand: 'Bandai', modelName: 'MGSD Freedom Gundam', size: 'Non-Scale', units: 1, price: 155.00 }
-        ];
+        let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || [];
 
-        // UI Logic
         function showPage(pageId) {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.getElementById(`page-${pageId}`).classList.remove('hidden');
-            
-            if (pageId === 'list') {
-                renderTable();
-            }
+            if (pageId === 'list') renderTable();
         }
 
         function renderTable() {
@@ -273,7 +260,6 @@
             const countDisplay = document.getElementById('kit-count');
             
             tbody.innerHTML = '';
-            
             const totalUnits = backlog.reduce((sum, kit) => sum + parseInt(kit.units || 1), 0);
             countDisplay.innerText = `${totalUnits} TOTAL UNITS`;
 
@@ -304,24 +290,40 @@
             });
         }
 
+        // Sorting Logic
+        function sortBacklog(property) {
+            backlog.sort((a, b) => {
+                let valA = a[property];
+                let valB = b[property];
+
+                // Check if sorting price (numeric) vs string
+                if (property === 'price' || property === 'units') {
+                    return parseFloat(valA) - parseFloat(valB);
+                }
+                
+                return String(valA).toLowerCase().localeCompare(String(valB).toLowerCase());
+            });
+            
+            saveData();
+            renderTable();
+            showMessage(`Sorted by ${property.toUpperCase()}`);
+        }
+
         function deleteKit(index) {
-            if (window.confirm("Delete this mobile suit entry?")) {
+            if (window.confirm("Delete this entry?")) {
                 backlog.splice(index, 1);
                 saveData();
                 renderTable();
-                showMessage("Unit removed from inventory.");
+                showMessage("Unit removed.");
             }
         }
 
         function confirmClear() {
-            // Confirmation popup added here
-            const isConfirmed = window.confirm("CRITICAL WARNING: This action will permanently erase your entire backlog database. Do you wish to proceed?");
-            
-            if (isConfirmed) {
+            if (window.confirm("CRITICAL WARNING: Wipe entire backlog?")) {
                 backlog = [];
                 saveData();
                 renderTable();
-                showMessage("Database purged. All units cleared.");
+                showMessage("Database purged.");
             }
         }
 
@@ -329,95 +331,68 @@
             const box = document.getElementById('msg-box');
             document.getElementById('msg-text').innerText = `[SYSTEM]: ${text}`;
             box.style.transform = 'translateY(0)';
-            setTimeout(() => {
-                box.style.transform = 'translateY(150%)';
-            }, 3000);
+            setTimeout(() => { box.style.transform = 'translateY(150%)'; }, 3000);
         }
 
         function saveData() {
             localStorage.setItem('gunpla_backlog', JSON.stringify(backlog));
         }
 
-        // Excel Handling
         function handleExcel(input) {
             const file = input.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-                    if (jsonData.length === 0) {
-                        showMessage("Error: File is empty.");
-                        return;
-                    }
-
                     const importedKits = jsonData.map(row => ({
                         id: Date.now() + Math.random(),
-                        brand: row['Brand'] || row['brand'] || 'Unknown',
-                        modelName: row['Model Name'] || row['model_name'] || row['Name'] || 'Unnamed Kit',
-                        size: row['Size'] || row['size'] || row['Grade'] || '-',
-                        units: parseInt(row['Units'] || row['units'] || row['Qty'] || row['qty'] || 1),
-                        price: parseFloat(row['Price'] || row['price'] || 0)
+                        brand: row['Brand'] || 'Unknown',
+                        modelName: row['Model Name'] || 'Unnamed Kit',
+                        size: row['Size'] || '-',
+                        units: parseInt(row['Units'] || 1),
+                        price: parseFloat(row['Price'] || 0)
                     }));
-
                     backlog = [...backlog, ...importedKits];
                     saveData();
                     renderTable();
-                    showMessage(`Successfully imported ${importedKits.length} entries.`);
+                    showMessage(`Imported ${importedKits.length} entries.`);
                     input.value = '';
-                } catch (err) {
-                    console.error(err);
-                    showMessage("Error reading Excel file. Check format.");
-                }
+                } catch (err) { showMessage("Error reading Excel."); }
             };
             reader.readAsArrayBuffer(file);
         }
 
         function exportToExcel() {
             const worksheet = XLSX.utils.json_to_sheet(backlog.map(k => ({
-                'Brand': k.brand,
-                'Model Name': k.modelName,
-                'Size': k.size,
-                'Units': k.units || 1,
-                'Price': k.price
+                'Brand': k.brand, 'Model Name': k.modelName, 'Size': k.size, 'Units': k.units, 'Price': k.price
             })));
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Backlog");
-            XLSX.writeFile(workbook, "Gunpla_Backlog_Template.xlsx");
+            XLSX.writeFile(workbook, "Gunpla_Backlog.xlsx");
         }
 
-        // Form Handling
         document.getElementById('add-kit-form').addEventListener('submit', (e) => {
             e.preventDefault();
-            
-            const newKit = {
+            backlog.push({
                 id: Date.now(),
                 brand: document.getElementById('brand').value,
                 modelName: document.getElementById('modelName').value,
                 size: document.getElementById('size').value,
                 units: parseInt(document.getElementById('units').value) || 1,
                 price: parseFloat(document.getElementById('price').value)
-            };
-
-            backlog.push(newKit);
+            });
             saveData();
-            
             e.target.reset();
             document.getElementById('units').value = 1;
-            
-            showMessage("New Mobile Suit registered successfully.");
+            showMessage("Unit registered.");
             setTimeout(() => showPage('list'), 800);
         });
 
-        window.onload = () => {
-            showPage('list');
-        };
+        window.onload = () => showPage('list');
     </script>
 </body>
 </html>
