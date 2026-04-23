@@ -167,7 +167,7 @@
                     <h2 class="text-xl text-blue-800">Inventory Feed</h2>
                     <div class="flex items-center gap-4">
                         <button onclick="exportToExcel()" class="text-xs text-blue-600 hover:underline">Download Template</button>
-                        <span id="kit-count" class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200">0 UNITS</span>
+                        <span id="kit-count-header" class="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full border border-blue-200 uppercase tracking-tighter">0 Units</span>
                     </div>
                 </div>
                 <table class="w-full text-left">
@@ -182,8 +182,14 @@
                             <th class="pb-4 font-normal">ACTIONS</th>
                         </tr>
                     </thead>
-                    <tbody id="backlog-table-body">
-                        </tbody>
+                    <tbody id="backlog-table-body"></tbody>
+                    <tfoot id="backlog-table-footer" class="hidden">
+                        <tr class="border-t-2 border-blue-900 bg-blue-50/50">
+                            <td colspan="4" class="py-6 px-4 text-right font-bold text-blue-900 uppercase text-xs tracking-widest">Grand Total Value:</td>
+                            <td id="total-units-cell" class="py-6 font-bold text-blue-900 text-lg">0</td>
+                            <td colspan="2" id="total-price-cell" class="py-6 font-bold text-red-600 text-lg font-mono">RM 0.00</td>
+                        </tr>
+                    </tfoot>
                 </table>
                 <div id="empty-state" class="text-center py-12 text-gray-400 hidden">
                     NO MOBILE SUITS DETECTED IN BACKLOG
@@ -246,7 +252,15 @@
     </div>
 
     <script>
-        let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || [];
+        // Sample data included in initial state
+        const initialSamples = [
+            { id: 1, brand: 'Bandai', modelName: 'RG RX-93-v2 Hi-Nu Gundam', size: '1/144', units: 1, price: 185.00 },
+            { id: 2, brand: 'Bandai', modelName: 'MG Wing Gundam Zero EW Ver.Ka', size: '1/100', units: 1, price: 230.00 },
+            { id: 3, brand: 'Bandai', modelName: 'HG XVX-016 Gundam Aerial', size: '1/144', units: 2, price: 65.00 },
+            { id: 4, brand: 'Kotobukiya', modelName: 'Megami Device Asra Ninja', size: 'Non-Scale', units: 1, price: 215.00 }
+        ];
+
+        let backlog = JSON.parse(localStorage.getItem('gunpla_backlog')) || initialSamples;
 
         function showPage(pageId) {
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
@@ -256,21 +270,34 @@
 
         function renderTable() {
             const tbody = document.getElementById('backlog-table-body');
+            const tfoot = document.getElementById('backlog-table-footer');
             const emptyState = document.getElementById('empty-state');
-            const countDisplay = document.getElementById('kit-count');
+            const countHeader = document.getElementById('kit-count-header');
+            const totalUnitsCell = document.getElementById('total-units-cell');
+            const totalPriceCell = document.getElementById('total-price-cell');
             
             tbody.innerHTML = '';
-            const totalUnits = backlog.reduce((sum, kit) => sum + parseInt(kit.units || 1), 0);
-            countDisplay.innerText = `${totalUnits} TOTAL UNITS`;
+            
+            let totalUnits = 0;
+            let totalValue = 0;
 
             if (backlog.length === 0) {
                 emptyState.classList.remove('hidden');
+                tfoot.classList.add('hidden');
+                countHeader.innerText = "0 UNITS";
                 return;
             } else {
                 emptyState.classList.add('hidden');
+                tfoot.classList.remove('hidden');
             }
 
             backlog.forEach((kit, index) => {
+                const units = parseInt(kit.units || 1);
+                const price = parseFloat(kit.price || 0);
+                
+                totalUnits += units;
+                totalValue += (units * price);
+
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-gray-100 last:border-0';
                 tr.innerHTML = `
@@ -278,8 +305,8 @@
                     <td class="py-4 text-sm text-gray-500">${kit.brand}</td>
                     <td class="py-4 font-bold text-gray-900">${kit.modelName}</td>
                     <td class="py-4"><span class="status-badge">${kit.size}</span></td>
-                    <td class="py-4 font-bold text-blue-900">${kit.units || 1}</td>
-                    <td class="py-4 text-blue-700 font-mono font-bold">RM ${parseFloat(kit.price).toFixed(2)}</td>
+                    <td class="py-4 font-bold text-blue-900">${units}</td>
+                    <td class="py-4 text-blue-700 font-mono font-bold">RM ${price.toFixed(2)}</td>
                     <td class="py-4">
                         <button onclick="deleteKit(${index})" class="text-gray-400 hover:text-red-500 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
@@ -288,15 +315,17 @@
                 `;
                 tbody.appendChild(tr);
             });
+
+            countHeader.innerText = `${totalUnits} TOTAL UNITS`;
+            totalUnitsCell.innerText = totalUnits;
+            totalPriceCell.innerText = `RM ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         }
 
-        // Sorting Logic
         function sortBacklog(property) {
             backlog.sort((a, b) => {
                 let valA = a[property];
                 let valB = b[property];
 
-                // Check if sorting price (numeric) vs string
                 if (property === 'price' || property === 'units') {
                     return parseFloat(valA) - parseFloat(valB);
                 }
