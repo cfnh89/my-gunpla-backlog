@@ -207,6 +207,12 @@
         <div id="sync-modal" class="fixed inset-0 hidden bg-black/80 backdrop-blur-md flex items-center justify-center z-[150] p-4 overflow-y-auto">
             <div class="glass-panel p-6 md:p-8 rounded-lg max-w-md w-full my-auto">
                 <h2 class="text-xl mb-2 text-blue-900 font-bold">CLOUD SYNC COMMAND</h2>
+                
+                <div id="github-setup-warning" class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-[10px] text-red-700 font-bold leading-tight hidden">
+                    ⚠ GITHUB DEPLOYMENT DETECTED:<br>
+                    You must enter your Firebase Keys in the code (line 200) for this to work on your own website.
+                </div>
+
                 <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-wider">Storage Protocol: Secure Sync</p>
                 
                 <!-- Section 1: Memory Alias -->
@@ -262,11 +268,45 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
+        // --- GITHUB DEPLOYMENT CONFIGURATION ---
+        // 1. Go to Firebase Console > Project Settings
+        // 2. Look for "Your apps" > Web App > firebaseConfig
+        const manualConfig = {
+            apiKey: "AIzaSyAbCTpYn1WJBhvvq9pSP8-YWrwOlvOIezg",
+            authDomain: "gunpla-tracker-d5916.firebaseapp.com",
+            projectId: "gunpla-tracker-d5916",
+            storageBucket: "gunpla-tracker-d5916.firebasestorage.app",
+            messagingSenderId: "589732856630",
+            appId: "1:589732856630:web:44e0036375e29d5775a997"
+        };
+
+        const getFirebaseConfig = () => {
+            // Priority 1: Environment-provided config
+            if (typeof __firebase_config !== 'undefined' && __firebase_config !== null) {
+                try {
+                    return JSON.parse(__firebase_config);
+                } catch (e) {
+                    console.error("Failed to parse environment config", e);
+                }
+            }
+            // Priority 2: Your manual keys
+            return manualConfig;
+        };
+
+        const activeConfig = getFirebaseConfig();
+        // Check if user has updated the placeholder values
+        const isGithubNotSet = activeConfig.apiKey === "YOUR_API_KEY";
+        
+        // Show warning if on GitHub but keys aren't set
+        if (isGithubNotSet && window.location.hostname !== 'localhost') {
+            const warning = document.getElementById('github-setup-warning');
+            if (warning) warning.classList.remove('hidden');
+        }
+
+        const app = initializeApp(activeConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'github-deployment';
 
         let currentUser = null;
 
@@ -310,7 +350,7 @@
                 window.showMessage(`Alias "${alias}" linked successfully!`);
             } catch (e) {
                 console.error(e);
-                window.showMessage("Alias setup failed. Try a different name.");
+                window.showMessage("Alias setup failed. Make sure Firestore is enabled.");
             }
         };
 
@@ -334,7 +374,7 @@
                 window.showMessage("Data secure in cloud.");
             } catch (e) {
                 console.error(e);
-                window.showMessage("Upload failed. Check connection.");
+                window.showMessage("Upload failed. Check Rules in Firebase.");
             }
         };
 
@@ -397,11 +437,14 @@
             } else {
                 dot.className = "w-3 h-3 rounded-full bg-red-500";
                 text.innerText = "Offline";
-                uid.innerText = "Connecting...";
+                uid.innerText = isGithubNotSet ? "Missing Keys" : "Connecting...";
             }
         });
 
         async function startAuth() {
+            // Don't try to connect if keys aren't set on Github
+            if (isGithubNotSet && window.location.hostname !== 'localhost') return;
+            
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
