@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gunpla Inventory Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel Import/Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@300;400&display=swap');
 
@@ -141,9 +143,16 @@
 
         <!-- Pages -->
         <div id="page-list" class="page">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <h2 class="text-xl text-blue-800">Operational Backlog</h2>
-                <button onclick="showAddForm('backlog')" class="btn-secondary px-4 py-2 rounded text-xs font-bold">+ NEW ENTRY</button>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="downloadTemplate('backlog')" class="px-3 py-2 border border-blue-200 text-blue-600 rounded text-[10px] font-bold hover:bg-blue-50 transition-colors uppercase">Download Template</button>
+                    <label class="px-3 py-2 border border-blue-200 text-blue-600 rounded text-[10px] font-bold hover:bg-blue-50 transition-colors cursor-pointer uppercase">
+                        Import Excel
+                        <input type="file" class="hidden" accept=".xlsx, .xls" onchange="importExcel(event, 'backlog')">
+                    </label>
+                    <button onclick="showAddForm('backlog')" class="btn-secondary px-4 py-2 rounded text-xs font-bold">+ NEW ENTRY</button>
+                </div>
             </div>
             <div class="glass-panel p-6 rounded-lg overflow-x-auto">
                 <table class="w-full text-left">
@@ -163,9 +172,16 @@
         </div>
 
         <div id="page-qmsv" class="page hidden">
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
                 <h2 class="text-xl text-purple-800">QMSV Mini Archive</h2>
-                <button onclick="showAddForm('qmsv')" class="btn-qmsv px-4 py-2 rounded text-xs font-bold">+ ADD FIGURE</button>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="downloadTemplate('qmsv')" class="px-3 py-2 border border-purple-200 text-purple-600 rounded text-[10px] font-bold hover:bg-purple-50 transition-colors uppercase">Download Template</button>
+                    <label class="px-3 py-2 border border-purple-200 text-purple-600 rounded text-[10px] font-bold hover:bg-purple-50 transition-colors cursor-pointer uppercase">
+                        Import Excel
+                        <input type="file" class="hidden" accept=".xlsx, .xls" onchange="importExcel(event, 'qmsv')">
+                    </label>
+                    <button onclick="showAddForm('qmsv')" class="btn-qmsv px-4 py-2 rounded text-xs font-bold">+ ADD FIGURE</button>
+                </div>
             </div>
             <div class="glass-panel p-6 rounded-lg overflow-x-auto border-purple-200">
                 <table class="w-full text-left">
@@ -173,7 +189,6 @@
                         <tr>
                             <th class="pb-4">SERIES</th>
                             <th class="pb-4">NAME</th>
-                            <th class="pb-4">TYPE</th>
                             <th class="pb-4">QTY</th>
                             <th class="pb-4">ACTIONS</th>
                         </tr>
@@ -210,7 +225,7 @@
                 
                 <div id="github-setup-warning" class="mb-4 p-3 bg-red-50 border border-red-200 rounded text-[10px] text-red-700 font-bold leading-tight hidden">
                     ⚠ GITHUB DEPLOYMENT DETECTED:<br>
-                    You must enter your Firebase Keys in the code (line 200) for this to work on your own website.
+                    You must enter your Firebase Keys in the code for this to work on your own website.
                 </div>
 
                 <p class="text-[10px] text-gray-400 mb-6 uppercase tracking-wider">Storage Protocol: Secure Sync</p>
@@ -269,8 +284,6 @@
         import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- GITHUB DEPLOYMENT CONFIGURATION ---
-        // 1. Go to Firebase Console > Project Settings
-        // 2. Look for "Your apps" > Web App > firebaseConfig
         const manualConfig = {
             apiKey: "AIzaSyAbCTpYn1WJBhvvq9pSP8-YWrwOlvOIezg",
             authDomain: "gunpla-tracker-d5916.firebaseapp.com",
@@ -281,7 +294,6 @@
         };
 
         const getFirebaseConfig = () => {
-            // Priority 1: Environment-provided config
             if (typeof __firebase_config !== 'undefined' && __firebase_config !== null) {
                 try {
                     return JSON.parse(__firebase_config);
@@ -289,15 +301,12 @@
                     console.error("Failed to parse environment config", e);
                 }
             }
-            // Priority 2: Your manual keys
             return manualConfig;
         };
 
         const activeConfig = getFirebaseConfig();
-        // Check if user has updated the placeholder values
         const isGithubNotSet = activeConfig.apiKey === "YOUR_API_KEY";
         
-        // Show warning if on GitHub but keys aren't set
         if (isGithubNotSet && window.location.hostname !== 'localhost') {
             const warning = document.getElementById('github-setup-warning');
             if (warning) warning.classList.remove('hidden');
@@ -310,7 +319,6 @@
 
         let currentUser = null;
 
-        // Exponential Backoff for API calls
         async function fetchWithRetry(fn, maxRetries = 5) {
             for (let i = 0; i < maxRetries; i++) {
                 try { return await fn(); }
@@ -328,7 +336,6 @@
             setTimeout(() => { box.style.transform = 'translateY(150%)'; }, 3000);
         };
 
-        // Alias Logic
         window.setAlias = async () => {
             if (!currentUser) {
                 window.showMessage("Sync still connecting. Please wait...");
@@ -442,7 +449,6 @@
         });
 
         async function startAuth() {
-            // Don't try to connect if keys aren't set on Github
             if (isGithubNotSet && window.location.hostname !== 'localhost') return;
             
             try {
@@ -478,10 +484,25 @@
             currentAddType = type;
             document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
             document.getElementById('page-add').classList.remove('hidden');
-            document.getElementById('price').style.display = type === 'backlog' ? 'block' : 'none';
+            document.getElementById('form-title').innerText = type === 'backlog' ? 'New Backlog Entry' : 'New QMSV Figure';
+            
+            // For QMSV, hide the price field and repurpose grade field
+            const priceField = document.getElementById('price');
+            const sizeField = document.getElementById('size');
+            
+            if (type === 'backlog') {
+                priceField.style.display = 'block';
+                sizeField.placeholder = "Grade / Size";
+            } else {
+                priceField.style.display = 'none';
+                sizeField.style.display = 'none'; // Hide size/type for QMSV
+            }
         }
 
-        function cancelAdd() { showPage(currentAddType === 'backlog' ? 'list' : 'qmsv'); }
+        function cancelAdd() { 
+            document.getElementById('size').style.display = 'block';
+            showPage(currentAddType === 'backlog' ? 'list' : 'qmsv'); 
+        }
 
         function renderBacklog() {
             const tbody = document.getElementById('backlog-table-body');
@@ -507,7 +528,6 @@
                     <tr class="border-b border-gray-100 text-xs">
                         <td class="py-4 text-purple-400">${item.brand}</td>
                         <td class="py-4 font-bold uppercase">${item.modelName}</td>
-                        <td class="py-4"><span class="status-badge">${item.size}</span></td>
                         <td class="py-4 font-bold text-purple-700">${item.units}</td>
                         <td class="py-4"><button onclick="deleteItem('qmsv', ${index})" class="text-red-400 hover:font-bold">×</button></td>
                     </tr>`;
@@ -528,14 +548,17 @@
             const newItem = {
                 brand: document.getElementById('brand').value,
                 modelName: document.getElementById('modelName').value,
-                size: document.getElementById('size').value,
+                size: currentAddType === 'backlog' ? document.getElementById('size').value : 'N/A',
                 units: parseInt(document.getElementById('units').value),
                 price: parseFloat(document.getElementById('price').value) || 0
             };
             if (currentAddType === 'backlog') backlog.push(newItem);
             else qmsv.push(newItem);
             saveLocally();
+            
+            document.getElementById('size').style.display = 'block'; // Reset visibility
             showPage(currentAddType === 'backlog' ? 'list' : 'qmsv');
+            e.target.reset();
         });
 
         function saveLocally() {
@@ -543,8 +566,68 @@
             localStorage.setItem('qmsv_collection', JSON.stringify(qmsv));
         }
 
+        // Excel Operations
+        function downloadTemplate(type) {
+            const headers = type === 'backlog' 
+                ? [["BRAND", "MODEL NAME", "GRADE", "QTY", "PRICE"]] 
+                : [["SERIES", "NAME", "QTY"]];
+            
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(headers);
+            XLSX.utils.book_append_sheet(wb, ws, "Template");
+            XLSX.writeFile(wb, `Gunpla_Template_${type}.xlsx`);
+        }
+
+        function importExcel(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+                    let importCount = 0;
+                    json.forEach(row => {
+                        if (type === 'backlog') {
+                            backlog.push({
+                                brand: row["BRAND"] || row["brand"] || "Unknown",
+                                modelName: row["MODEL NAME"] || row["modelName"] || "Unnamed Kit",
+                                size: row["GRADE"] || row["size"] || "N/A",
+                                units: parseInt(row["QTY"] || row["units"]) || 1,
+                                price: parseFloat(row["PRICE"] || row["price"]) || 0
+                            });
+                        } else {
+                            qmsv.push({
+                                brand: row["SERIES"] || row["brand"] || "Unknown",
+                                modelName: row["NAME"] || row["modelName"] || "Unnamed Figure",
+                                size: "N/A", // Column removed
+                                units: parseInt(row["QTY"] || row["units"]) || 1
+                            });
+                        }
+                        importCount++;
+                    });
+
+                    saveLocally();
+                    showPage(type === 'backlog' ? 'list' : 'qmsv');
+                    window.showMessage(`Imported ${importCount} entries.`);
+                    event.target.value = ""; // Reset input
+                } catch (err) {
+                    console.error(err);
+                    window.showMessage("Failed to parse Excel file.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         window.openSyncModal = () => document.getElementById('sync-modal').classList.remove('hidden');
         window.closeSyncModal = () => document.getElementById('sync-modal').classList.add('hidden');
+        
+        // Initial load
+        renderBacklog();
     </script>
 </body>
 </html>
