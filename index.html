@@ -84,7 +84,7 @@
     <div id="app" class="max-w-5xl mx-auto relative pb-20">
         <header class="mb-8 text-center relative py-6">
             <h1 class="text-3xl md:text-5xl font-bold mb-2 text-blue-900">Backlog Command</h1>
-            <p class="text-gray-400 text-sm tracking-widest uppercase">Inventory System v2.2 (Auto-Sync)</p>
+            <p class="text-gray-400 text-sm tracking-widest uppercase">Inventory System v2.3 (Cluster Fix)</p>
         </header>
 
         <div class="glass-panel p-4 rounded mb-8 flex flex-wrap items-center justify-between gap-4 border-dashed border-blue-200">
@@ -221,13 +221,13 @@
         <div id="sync-modal" class="fixed inset-0 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
             <div class="glass-panel p-6 rounded-lg max-w-sm w-full">
                 <h2 class="text-xl mb-4 text-blue-900 font-bold">STORAGE CLUSTER</h2>
-                <p class="text-[9px] text-gray-500 mb-4 uppercase">Auto-sync updates the cloud after every change when active.</p>
+                <p class="text-[9px] text-gray-500 mb-4 uppercase">Enter your cluster name on any device to retrieve data.</p>
                 <input type="text" id="custom-alias" placeholder="Enter Cluster Name" class="w-full p-3 mb-3 border rounded text-xs outline-none focus:border-blue-900">
                 <div class="grid grid-cols-2 gap-2">
-                    <button onclick="setAlias()" class="bg-blue-600 text-white py-2 rounded text-xs hover:bg-blue-700">LINK ALIAS</button>
+                    <button onclick="setAlias()" class="bg-blue-600 text-white py-2 rounded text-xs hover:bg-blue-700">LINK CLUSTER</button>
                     <button onclick="uploadToCloud()" class="bg-blue-900 text-white py-2 rounded text-xs hover:bg-blue-800">FORCE UPLOAD</button>
                 </div>
-                <button onclick="downloadFromCloud()" class="w-full mt-2 py-3 border-2 border-blue-900 text-blue-900 rounded font-bold text-xs hover:bg-blue-50">DOWNLOAD DATA</button>
+                <button onclick="downloadFromCloud()" class="w-full mt-2 py-3 border-2 border-blue-900 text-blue-900 rounded font-bold text-xs hover:bg-blue-50">SYNC TO THIS DEVICE</button>
                 <button onclick="closeSyncModal()" class="w-full mt-4 text-[10px] text-gray-400 uppercase font-bold text-center">Close Interface</button>
             </div>
         </div>
@@ -274,6 +274,7 @@
                     backlog: JSON.parse(localStorage.getItem('gunpla_backlog')) || [], 
                     qmsv: JSON.parse(localStorage.getItem('qmsv_collection')) || [] 
                 };
+                // Store in user private data
                 await setDoc(doc(db, 'artifacts', 'inventory-app', 'users', currentUser.uid, 'data', 'main'), data);
                 if(!silent) window.showMessage("Cloud Update Success");
             } catch (e) {
@@ -282,28 +283,54 @@
         };
 
         window.downloadFromCloud = async () => {
-            if (!currentUser) return;
             const alias = document.getElementById('custom-alias').value.trim().toLowerCase();
-            let uid = currentUser.uid;
-            if (alias) {
-                const snap = await getDoc(doc(db, 'artifacts', 'inventory-app', 'public', 'aliases', alias));
-                if (snap.exists()) uid = snap.data().uid;
+            if (!alias) {
+                window.showMessage("Please enter a cluster name");
+                return;
             }
-            const snap = await getDoc(doc(db, 'artifacts', 'inventory-app', 'users', uid, 'data', 'main'));
-            if (snap.exists()) {
-                localStorage.setItem('gunpla_backlog', JSON.stringify(snap.data().backlog));
-                localStorage.setItem('qmsv_collection', JSON.stringify(snap.data().qmsv));
-                location.reload();
-            } else {
-                window.showMessage("No data found for this cluster");
+
+            try {
+                window.showMessage("Searching Cluster...");
+                // 1. Look up the UID associated with this cluster name (alias)
+                const aliasDoc = await getDoc(doc(db, 'artifacts', 'inventory-app', 'public', 'aliases', alias));
+                
+                if (aliasDoc.exists()) {
+                    const targetUid = aliasDoc.data().uid;
+                    // 2. Fetch the actual data from that UID's data path
+                    const dataDoc = await getDoc(doc(db, 'artifacts', 'inventory-app', 'users', targetUid, 'data', 'main'));
+                    
+                    if (dataDoc.exists()) {
+                        const cloudData = dataDoc.data();
+                        localStorage.setItem('gunpla_backlog', JSON.stringify(cloudData.backlog || []));
+                        localStorage.setItem('qmsv_collection', JSON.stringify(cloudData.qmsv || []));
+                        window.showMessage("Sync Complete! Reloading...");
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        window.showMessage("Cluster found but has no data records.");
+                    }
+                } else {
+                    window.showMessage("Cluster name not found.");
+                }
+            } catch (err) {
+                console.error(err);
+                window.showMessage("Network error during sync.");
             }
         };
 
         window.setAlias = async () => {
             const alias = document.getElementById('custom-alias').value.trim().toLowerCase();
             if (alias && currentUser) {
-                await setDoc(doc(db, 'artifacts', 'inventory-app', 'public', 'aliases', alias), { uid: currentUser.uid });
-                window.showMessage("Alias Linked");
+                try {
+                    // Save to the public registry so other computers can find this UID
+                    await setDoc(doc(db, 'artifacts', 'inventory-app', 'public', 'aliases', alias), { uid: currentUser.uid });
+                    // Also trigger an upload to make sure there's data to find
+                    window.uploadToCloud(true);
+                    window.showMessage("Cluster linked and shared.");
+                } catch (e) {
+                    window.showMessage("Failed to link cluster.");
+                }
+            } else {
+                window.showMessage("Login required for linking.");
             }
         };
     </script>
